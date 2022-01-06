@@ -1,0 +1,280 @@
+
+
+Docker is atool for running applications in an isolated env
+
+similar to VM with less OS
+
+App run in same env
+
+Standard for software dev as it can easily packages into an image.
+
+
+Containers is an abstaraction at the app layer that packages code and dependencies together.
+
+Multiple conrainer can run on asame machine sharingf the os kernel with other containers
+
+
+
+vms are an abstaraction of physical hardware turning 1 server into many server
+
+
+slow to boot
+
+
+benefits of container
+
+
+run container in sec
+
+
+uses les mem
+
+
+no full oss are needed
+
+less resorce and disk space
+
+Docker desktop is th latest version for windows mac or ay other os
+
+docker toolbox is the old version
+
+
+image is a template for creating an env of ur choice
+
+snapshot
+
+contains evrything which needed for an app to run
+
+
+
+running instance of an img is container
+
+
+
+command-
+
+docker 
+
+docker --version
+
+sudo docker ps
+
+sudo docker pull nginx
+
+sudo docker images
+sudo docker run nginx:latest
+ 
+ 
+sudo docker container ls
+
+sudo docker run -d nginx:latest
+
+sudo docker container ls
+
+port host-port:container-port
+
+sudo docker run -d -p 8081:80 nginx:latest
+
+sudo docker stop container-id
+sudo docker stop 177a5f327222
+
+
+2 or multiple host ports can be mapped to a single container port
+
+sudo docker run -d -p 8081:80 -p 8082:80 nginx:latest
+
+sudo docker stop container-name
+sudo docker stop crazy_driscoll
+
+sudo docker start crazy_driscoll
+
+
+get only the numeric ids of all the containers
+sudo docker ps -aq
+
+
+delete all the container returned by -qa command
+sudo docker rm $(sudo docker ps -aq))
+
+
+force delete running container
+sudo docker rm -f $(sudo docker ps -aq)
+
+
+name a container website
+sudo docker run --name website -d -p 8081:80 -p 8082:80 nginx:latest
+
+
+sudo docker stop website
+
+docker ps format command
+
+sudo docker ps --format "ID\t{{.ID}}\nNAME\t{{.Names}}\nIMAGE\t{{.Image}}\nPORTS\t{{.Ports}}\nCOMMAND\t{{.Command}}\nCREATED\t{{.CreatedAt}}\nSTATUS\t{{.Status}}\n"
+
+
+export the formating string into a variable format
+export FORMAT="ID\t{{.ID}}\nNAME\t{{.Names}}\nIMAGE\t{{.Image}}\nPORTS\t{{.Ports}}\nCOMMAND\t{{.Command}}\nCREATED\t{{.CreatedAt}}\nSTATUS\t{{.Status}}\n"
+
+sudo docker ps --format=$FORMAT
+
+
+
+VOLUMES-----------------------
+
+allow share files between host n container
+
+
+sharing files in read only mode - means we can only put files in the shared location of the host which will be accesses by the container but container cannot add any files in gthe shared location.
+sudo docker run --name website -d -v $(pwd):/usr/share/nginx/html:ro -p 8081:80 nginx
+
+go n check localhost:8081 in the web-browser
+
+sudo docker run --name website -d -v $(pwd):/usr/share/nginx/html -p 8081:80 nginx
+
+
+Format the docker ps output
+
+sudo docker ps --format "ID\t{{.ID}}\nNAME\t{{.Names}}\nIMAGE\t{{.Image}}\nPORTS\t{{.Ports}}\nCOMMAND\t{{.Command}}\nCREATED\t{{.CreatedAt}}\nSTATUS\t{{.Status}}\n"
+
+or use export variable name to format docker ps output
+
+export FORMAT="ID\t{{.ID}}\nNAME\t{{.Names}}\nIMAGE\t{{.Image}}\nPORTS\t{{.Ports}}\nCOMMAND\t{{.Command}}\nCREATED\t{{.CreatedAt}}\nSTATUS\t{{.Status}}\n"
+
+sudo docker ps --format=$FORMAT
+
+Sharing volumes from container 1 to container 2
+sudo docker run --name website-copy --volumes-from website -d -p 8082:80 nginx
+
+
+DOCKERFILE IS FIRST CONVERTED INTO IMAGE WHICH IS LATER RUN AS CONTAINER
+
+go inside website folder
+
+vi Dockerfile
+FROM nginx:latest
+ADD . /usr/share/nginx/html
+
+sudo docker build --tag website:latest .
+
+
+containerize express application
+
+mkdir user-service-api
+cd user-service-api
+npm init
+press enter.....
+yes
+npm install --save express
+
+vi Dockerfile
+
+FROM node:latest
+WORKDIR /app
+ADD . .
+RUN npm install
+CMD node index.js
+
+sudo docker build -t user-service-api:latest .
+
+sudo docker images
+
+sudo docker run --name user-api -d -p 3000:3000 user-service-api:latest
+
+create file .dockerignore -which ignores the files n folders to be copied in the image
+vi .dockerignore
+
+node_modules
+.git
+Dockerfile
+
+
+to remove docker images
+
+sudo docker rmi image-name or id
+
+
+ CACHING AND LAYERING USED HERE----
+ 
+vi Dockerfile
+
+FROM node:latest
+WORKDIR /app
+ADD package*.json ./
+RUN npm install
+ADD . .
+CMD node index.js
+
+
+By using alpine version of the base image we can reduce the size of our application image
+
+vi Dockerfile
+
+FROM node:alpine
+WORKDIR /app
+ADD package*.json ./
+RUN npm install
+ADD . .
+CMD node index.js
+
+
+TAGS, VERSIONING, TAGGING
+
+Allows you to control image version
+Avoid breaking changes
+Safe
+
+vi Dockerfile
+
+FROM node:10.16.1-alpine
+WORKDIR /app
+ADD package*.json ./
+RUN npm install
+ADD . .
+CMD node index.js
+
+TO TAG AN IMAGE
+
+sudo docker tag website:latest website:1
+
+
+DOCKER REGISTRIES------
+
+used to store docker images and are highly scalable.
+both private and public
+
+docker hub
+quay.io
+ECR
+
+
+
+TO PUSH A DOCKER IMAGE
+
+sudo docker login
+username
+pwd
+
+sudo docker push priyankas06/website:1
+
+
+docker inspect --- to view th configuration of a running container
+
+sudo docker inspect container-name-or-id
+
+
+docker logs -----to debug and view the logs of a container which can be later moved to elastic search or any other platform for further analysis----to view the traffic that goes to the container
+
+
+sudo docker logs conatainer-name-or-id
+
+sudo docker logs -f container-name-or-id  // to follow along the logs
+
+docker exec-----------to go inside a running container
+
+sudo docker exec -it conatainer-name-or-id
+
+
+
+
+
+

@@ -1,0 +1,139 @@
+K8s --- container orchestration tool
+
+definition--------
+
+open source container orchestration tool
+developed by google
+helps u to manage containerized application in diff deployment env (phy, virtual and hybrid)
+
+
+need for k8s-------
+
+trends for monolith microservice
+increased usage of containers
+demands for a proper way of managing those 100s of container
+
+features of k8s------
+
+high availability - no downtime
+scalability - high performance
+disaster revovery - backup and restore
+
+
+kubernets arch---
+
+kubelet (primary node agent) are installed on slave/worker nodes to talk to each other
+on the worker nodes, the containers are deployed, and the number depends on the workload of actual application
+on master node, all the k8s processess runs which are necessary to run and manage the cluster
+on master node, the processess are: - 
+API server (conatiner) - entry point to the k8s cluster and the clients (UI, API and CLI) first talk to the api server
+controller manager - keeps track of what is heppening in the cluster e.g. something needs to be repaired, maintains actual pod = desired pod.
+scheduler - ensures pod placement on the worker node based on the available resorces
+
+etcd - database of current state of the k8s cluster, it is key-value store
+
+virtual network - creates 1 unified machine
+
+if master node dies, then cluster cannot be accessed, so at least 2 master nodes are needed.
+
+
+
+k8s component-------
+
+Pod - smallest unit of k8s, abstraction over conatiner, usually 1 application per pod others will be helper application, each pod has ip addr to communicate with each other, pods are ephemeral, so new pod coes with new ip so another k8s component called service is used
+
+Service - a static ip address connected with pod, lifecyle is not connected, external n internal (for dbs) services, to get a domain name to access the service through browser using a proper url, ingress k8s component is needed, it also acts as a load balancer (to forward th request to a pod with less load) 
+
+Ingress - provides a domain name to access service
+
+Configmap - conatains external configuration of an appllicatn like db url which an app uses.
+
+Secret - stores the secret data like db credential not in plain txt but in base 64 encoded and connect it to the pod.
+
+you can read the data from config map and secret using environment variable
+
+VOLUMES ----
+
+ it is the physical storage (either remote or local) that is connected with pods mainly db pods in order to protect your data loss when the pod dies
+ K8s doesen't mange data persistence
+ 
+ 
+Deployments----
+
+It is a layer of abstraction above pods
+It is a blue prints of a pods 
+
+
+Stateful Sets---------------------
+
+Used to create statefull apps like databases which has a perticlular state of the data stored and data inconsistency problem may arrise in case of multiple pods sharing the same databases
+Deployment are stateless component so it cannot be used to implement database pods like mongodb, elastic search, mysql etc.
+It also offers replicating features and scaling them up, also synchronising their reads and writes.
+Working with stateful set is more tedious as compared to deployments so it is better to keep database outside the k8s cluster and all the deployments running within the cluster can accedd the db for the data.
+
+
+Minikube-----------
+
+It is a one node cluster with master and worker node running on the same machine and alos have pre-installed docker.
+
+it runs through virtul box or any other hypervisor.
+
+It is one node cluster running inside virtual box
+
+it is used for testing purpose
+
+
+kubectl ---------
+
+it is a command line tool to talk to the minikube cluster- to create deployments, replica set etc.
+
+it is the most powerful tool which talks to API server process to do the task of creation or deletion of pods or deployments
+
+Can be used both with minikube as well as master slave set up. 
+
+ 
+commands----------------
+
+minikube start --vm-driver=virtualbox
+minikube status
+kubectl version
+kubectl get node
+kubectl get pod
+kubectl create deployment mongo-depl --image=mongo
+
+kubectl get deployment
+kubectl get pod
+
+kubectl logs pod-name
+
+kubectl describe pod pod-name
+
+ to get the terminal of the application pod----
+kubectl exec -it pod-name -- bin/bash
+
+to create a pod from a configuration file
+kubectl apply -f nginx-depl.yaml 
+
+
+to get base64 encoded value------in secret yaml file we write base 64 encoded text instead of plain text----
+echo -n 'username' | base64
+
+to get the ip of the pod and match it with attached service endpoint
+kubectl get pod -o wide
+
+also make sure the service selector should match with label of the deployment/pod
+
+Now to make the service external for mongodb-express to be accesses outside the cluster from a browser is to specify type as LoadBalancer otherwise without any type the service will be of internal type (CLUSTER IP).
+Also specify nodePort between 30000 to 32767 , to get the external ip of the node inside which the pod is running.
+
+With CLUSTER IP we get only private ip address as it is internal type of service while with load balancer type we get both internal an external ip addr and ports which can be verified using
+kubectl get service
+
+this command assigns and public ip addr which u can access through the browser
+minikube service mongo-express-service
+
+
+Format of Configuration file: Declarative way of creating deployments and pods
+1. metadata - names and label of the depl
+2. specification - replicas, selectors (same as label) and template of pods with image name and port number
+3. status - added automatically by k8s from etcd and if there is any mismatch in the specs and status then a new pods is added immd. 
