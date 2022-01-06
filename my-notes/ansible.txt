@@ -1,0 +1,437 @@
+
+-------------------------------------------------------only for server---------------------------
+ansible pkd download url-
+
+wget https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+
+yum install epel-release-latest-7.noarch.rpm
+
+yum install git python python-level python-pip openssl ansible -y
+
+ansible --version
+
+cd /etc/ansible
+vi hosts
+
+# add private ip of the node
+
+vi ansible.cfg
+
+# uncomment inventory and sudo user
+------------------------------------------------------------------------------------
+
+adduser ansible
+
+passwd ansible
+
+type password
+
+retype
+
+goto node 1
+
+adduser
+passwd
+
+su - ansible
+
+goto server
+
+su - ansible
+
+yum update
+
+ansible user needs sudo privileges
+
+exit
+
+visudo
+
+to serach - /root n(next)
+
+ansible ALL=(ALL) NOPASSWD: ALL
+:wq!
+
+su - ansible
+sudo yum update -y
+
+vi /etc/ssh/sshd_config
+
+uncomment 
+PermitRootLogin yes
+PasswordAuthentication yes
+
+Comment
+PasswordAuthentication yes
+
+:wq!
+
+service sshd restart
+
+su - ansible
+
+in server and nodes
+
+ssh privateip
+ansible password
+touch file1 file2
+
+verify file1 file2 in nodes
+
+-----------------------------------------------------------------------------------------------------
+to generate public key on server for Trust relationship between the ansible user of server and nodes so that no password is required to push data.
+ssh-keygen
+ls -a
+
+output = .ssh
+
+cd .ssh/
+
+ls
+
+
+to copy public key
+
+ssh-copy-id ansible@172.31.44.138 (node1 public ip)
+
+
+----------------------------------------------------------------
+HOST PATTERN:-
+
+ansible all --list-hosts
+
+ansible dev --list-hosts
+
+ansible dev[0] --list-hosts
+
+ansible dev[-1] --list-hosts
+
+---------------------------------------------------------------------------------
+3 ways to push code:
+
+1. adhoc commands (simple linux commands) - No idempotency- e.g touch file 1 creates again even if the file exist
+
+cannot be used for configuration mgmt.
+run individually to perform quick functions
+command line tool for ansible - usr/bin/ansible
+
+go to ansible server
+
+su - ansible
+ansible dev -a "ls"				//-a = argument
+ansible dev[0] -a "touch file"
+ansible all -a "touch file"
+ansible dev -a "ls -al"			//long list of all files including hidden ones
+ansible dev -a "sudo yum install httpd -y"
+ansible dev -ba "yum install httpd -y"
+ansible dev -ba "yum remove httpd -y"
+
+--------------------------------------------------------------------------------------------
+2. modules (single work or task) - idempotency is possible due to setup module i.e. same task is not repeated again
+
+located at /etc/ansible/hosts
+
+ansible dev -b -m yum -a "pkg=httpd state=present" 	//to install httpd using -m (module), state=present 
+							//(install),state=absent(uninstall), 		
+							//ansible dev -b -m yum -a "pkg=httpd state=latest"	
+							//state=latest(update), -b(sudo priviledge, become root), yum(module name)
+ansible dev -b -m yum -a "pkg=httpd state=absent"
+
+ansible dev -b -m service -a "name=httpd state=present"	//service (module name) started, dev (group name in hosts file i.e. inventory )
+ansible dev -b -m user -a "name=priyanka"		// add user priyanka
+ansible dev -b -m copy -a "src=file4 dest=/tmp"		//to copy file4 to temp directory
+
+
+ansible dev -m setup 		//gives current configuration of all the nodes in dev group due to setup group
+
+ansible dev -m setup -a "filter=*ipv4*"  // gives ipv4 address of all the nodes
+
+---------------------------------------------------------------------------------------------------------------------------
+3. Playbook (collection of modules)
+
+playbook written in YAML format
+
+It consist of vars, tasks, handlers, files, templates, roles
+
+devided into 3 section:
+1. target section- defines host against which playbooks task has been written.
+2. variable section-define variables which can be changed
+3. Task section - list of modules needs to be executed in order
+
+
+
+starts with "---" and ens with "..."
+
+key: value	// space between : and value
+
+playbook example1:-
+vi target.yaml
+
+--- # Target playbook
+- hosts: dev
+  user: ansible
+  become: yes
+  connection: ssh
+  gather_facts: yes
+
+
+esc
+:wq!
+
+
+To execute: ansible-playbook target.yaml
+
+
+playbook example2:-
+vi tasks.yml
+
+--- # Target and Task playbook
+- hosts: dev
+  user: ansible
+  become: yes
+  connection: ssh
+  gather_facts: yes
+  tasks:
+ 	- name: install HTTPD on centos 7
+ 	  action: yum name=httpd state=installed
+
+
+esc
+:wq!
+
+To execute: ansible-playbook tasks.yml
+
+variables: are defined to enable more flexibilty in playbook and roles.
+
+playbook example3:-
+vi vars.yaml
+
+--- # variable playbook
+- hosts: dev
+  user: ansible
+  become: yes
+  connection: ssh
+  vars:
+  	pkgname: httpd
+  tasks:
+ 	- name: install HTTPD on server
+ 	  action: yum name='{{pkgname}}' state=installed
+
+
+esc
+:wq!
+
+To execute: ansible-playbook vars.yaml
+
+
+handlers: similar to task but it will run when called by another task.
+Only run if task contain a notify directive and also indicates that it changed something
+
+
+playbook example4:-
+vi handlers.yaml
+
+--- # Handler playbook
+- hosts: dev
+  user: ansible
+  become: yes
+  connection: ssh
+  vars:
+  	pkgname: httpd
+  tasks:
+ 	- name: install HTTPD on server
+ 	  action: yum name='{{pkgname}}' state=installed
+ 	  notify: restart HTTPD
+  handlers:
+  	- name: restart HTTPD
+  	  action: service name='{{pkgname}}' state=restarted
+
+esc
+:wq!
+
+To execute: ansible-playbook handlers.yaml
+
+
+DRY RUN: CHECK WHETHER THE PLAYBOOK IS FORMATTED CORRECTLY
+
+command: ansible-playbook handlers.yml --check
+
+
+
+To remove httpd using adhoc commands:-
+
+ansible dev -ba "yum remove httpd"
+
+ansible dev -b -m yum -a "pkg=httpd state=absent"
+
+
+LOOPS: REPEAT A TASK MULTIPLE TIMES
+
+playbook example5:-
+vi loops.yaml
+
+--- # Loops playbook
+- hosts: dev
+  user: ansible
+  become: yes
+  connection: ssh
+  tasks:
+ 	- name: add a list of users on my nodes
+ 	  user: name='{{item}}' state=present
+ 	  with_items:
+ 	  	- priyanka
+ 	  	- priya
+ 	  	- rohan
+ 	  	- abhay
+ 	  	- sharanya
+ 	  
+
+esc
+:wq!
+
+To execute: ansible-playbook loops.yaml
+
+to verify on node1: cat /etc/passwd
+
+# Sample Inventory File
+
+# Web Servers
+# Web Servers
+ web_node1 ansible_host=web01.xyz.com ansible_connection=winrm ansible_user=administrator ansible_password=Win$Pass
+ web_node2 ansible_host=web02.xyz.com ansible_connection=winrm ansible_user=administrator ansible_password=Win$Pass
+ web_node3 ansible_host=web03.xyz.com ansible_connection=winrm ansible_user=administrator ansible_password=Win$Pass
+
+# DB Servers
+  sql_db1 ansible_host=sql01.xyz.com ansible_connection=ssh ansible_user=root ansible_ssh_pass=Lin$Pass
+  sql_db2 ansible_host=sql02.xyz.com ansible_connection=ssh ansible_user=root ansible_ssh_pass=Lin$Pass
+
+# Groups
+[db_nodes]
+sql_db1
+sql_db2
+
+[web_nodes]
+web_node1
+web_node2
+web_node3
+
+COMMAND MODULE IN PLAYBOOK:-
+
+// Serach for a line in a file and replace it or add it if it doesen't exist.
+
+playbook example6:-
+vi lineinfile.yaml
+
+--- # LINEINFILE module playbook
+- 
+  name: Add a DNS server to resolve.conf
+  hosts: dev
+  user: ansible
+  become: yes
+  connection: ssh
+  tasks:
+ 	- lineinfile:
+		path: /etc/resolv.conf
+		line: 'nameserver 10.1.250.10'
+ 	  
+
+esc
+:wq!
+
+To execute: ansible-playbook lineinfile.yaml
+
+
+
+playbook example7:-
+vi vars1.yaml
+
+--- # variable playbook
+- 
+  name: Add DNS to resolve.conf
+  hosts: dev
+  user: ansible
+  become: yes
+  connection: ssh
+  vars:
+  	dns_server: 10.1.250.10
+  tasks:
+ 	- lineinfile:
+		path: /etc/resolv.conf
+		line: 'nameserver {{dns_server}}'
+          
+
+esc
+:wq!
+
+To execute: ansible-playbook vars1.yaml
+
+
+CONDITIONAL : - REGISTER and WHEN
+playbook example8:-
+vi register.yaml
+
+--- # conditioanl playbook
+- 
+  name: Check status of service and email if its down
+  hosts: dev
+  user: ansible
+  become: yes
+  connection: ssh
+  tasks:
+ 	- command: service httpd status
+	  register: command_output
+	- mail:
+		to: Admins <system.admin@comapany.com>
+		subject: Service Alert
+		body: 'Service {{ansible_hostname}} is down.'
+	 when: command_output.stdout.find('down') != -1
+		
+          
+
+esc
+:wq!
+
+To execute: ansible-playbook vars1.yaml
+
+
+INVENTORY.txt
+
+taget1 ansible_host=172.31.38.193 ansible_ssh_pass=ansible ansible_connection=ssh
+taget2 ansible_host=172.31.39.167 ansible_ssh_pass=ansible ansible_connection=ssh
+
+ansible target1 -m ping -i inventory.txt
+
+o/p -SUCCESS
+PONG
+
+[dev]
+172.31.38.251
+172.31.45.177
+
+--------------------------------------------------------------------------------------------------------------------------------
+
+- mail:
+          host: smtp.gmail.com
+          port: 587
+          username: priyankasingh.doly@gmail.com
+          password: doly12348969
+          to: Anand Singh <anandsingh.2733@gmail.com>
+          subject: Ansible-report
+          body: 'System {{ ansible_hostname }} has been successfully provisioned.'
+        delegate_to: localhost
+
+
+
+---------------------------------------------------------------------------------------------------------------------------------
+
+hklnngqeusquyxls
+
+,Nilesh Roy<nilesh.roy1985@gmail.com>,Vivek<vivekchaudhary0976@gmail.com>, Anand Singh <anandsingh.2733@gmail.com>,
+
+Ansible mail task
+Ref:- https://stackoverflow.com/questions/46992908/ansible-smtp-mail-send
+
+
+
+
+
